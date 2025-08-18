@@ -26,7 +26,7 @@ export default function LoginPage() {
         if (error) console.error('Error ensuring user exists:', error)
       }
       await ensureUser(data.user)
-      router.push('/catalog')
+      router.push('/orders')
     }
     setLoading(false)
   }
