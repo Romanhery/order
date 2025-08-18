@@ -16,43 +16,32 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-
+    const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) {
       setError(error.message)
     } else if (data.user) {
-      // Ensure the user exists in your users table to avoid foreign key errors
-      // ✅ Supabase v2 upsert (no onConflict needed)
-        const ensureUser = async (user: any) => {
-        const { error } = await supabase
-            .from('users')
-            .upsert([{ id: user.id, email: user.email }]); // upsert by primary key automatically
-
-        if (error) console.error('Error ensuring user exists:', error);
-        };
-
-      ensureUser(data.user);
-      router.push('/orders') // redirect after signup
+      // Ensure user exists in users table
+      const ensureUser = async (user: any) => {
+        const { error } = await supabase.from('users').upsert([{ id: user.id, email: user.email }])
+        if (error) console.error('Error ensuring user exists:', error)
+      }
+      await ensureUser(data.user)
+      router.push('/catalog')
     }
+    setLoading(false)
+  }
+
   // Login function
   const handleLogin = async () => {
     setLoading(true)
     setError('')
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       setError(error.message)
     } else if (data.user) {
-      router.push('/orders') // redirect after login
+      router.push('/orders')
     }
-
     setLoading(false)
   }
 
@@ -60,7 +49,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
         <h1 className="text-2xl font-bold mb-6 text-center">Login / Signup</h1>
-        {error && <p className="text-red-500 mb-4">ERROR</p>}
+
+        {error && <p className="text-red-500 mb-4">{error}</p>}
 
         <input
           type="email"
@@ -96,6 +86,4 @@ export default function LoginPage() {
       </div>
     </div>
   )
-
-}
 }

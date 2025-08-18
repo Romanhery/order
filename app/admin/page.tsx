@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
 interface Order {
@@ -12,9 +12,9 @@ interface Order {
 
 export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([])
-  const audioRef = useRef<HTMLAudioElement>(null)
+  const [audioEnabled, setAudioEnabled] = useState(false)
+  const audio = typeof window !== 'undefined' ? new Audio('/ping.mp3') : null
 
-  // Fetch existing orders
   const fetchOrders = async () => {
     const { data, error } = await supabase
       .from('orders')
@@ -26,31 +26,50 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchOrders()
 
-    // Subscribe to real-time inserts
-    const subscription = supabase
-  .channel('public:orders')
-  .on(
-    'postgres_changes',
-    { event: 'INSERT', schema: 'public', table: 'orders' },
-    (payload) => {
-      setOrders((prev) => [payload.new as Order, ...prev]) // ✅ cast to Order
-      if (audioRef.current) audioRef.current.play()
-    }
-  )
-  .subscribe()
-
+    const channel = supabase
+      .channel('public:orders')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders' },
+        (payload) => {
+          const newOrder = payload.new as Order
+          setOrders((prev) => [newOrder, ...prev])
+          if (audioEnabled && audio) {
+            audio.currentTime = 0
+            audio.play().catch((err) => console.log('Audio play error:', err))
+          }
+        }
+      )
+      .subscribe()
 
     return () => {
-      supabase.removeChannel(subscription)
+      supabase.removeChannel(channel)
     }
-  }, [])
+  }, [audioEnabled])
+
+  const enableAudio = () => {
+    if (audio) {
+      audio.play()
+        .then(() => {
+          audio.pause()
+          audio.currentTime = 0
+          setAudioEnabled(true)
+        })
+        .catch((err) => console.log('Audio enable error:', err))
+    }
+  }
 
   return (
     <main className="min-h-screen p-6 bg-gray-100">
       <h1 className="text-3xl font-bold mb-4">Admin Dashboard</h1>
-
-      <audio ref={audioRef} src="/ping.mp3" preload="auto"></audio>
-
+      {!audioEnabled && (
+        <button
+          onClick={enableAudio}
+          className="mb-4 bg-yellow-500 text-white px-4 py-2 rounded"
+        >
+          Enable Notifications
+        </button>
+      )}
       <table className="min-w-full bg-white rounded shadow">
         <thead>
           <tr className="bg-gray-200">
@@ -61,6 +80,13 @@ export default function AdminDashboard() {
           </tr>
         </thead>
         <tbody>
+          {orders.length === 0 && (
+            <tr>
+              <td colSpan={4} className="p-2 text-gray-500 text-center">
+                No orders yet
+              </td>
+            </tr>
+          )}
           {orders.map((order) => (
             <tr key={order.id} className="border-b">
               <td className="p-2">{order.id}</td>
