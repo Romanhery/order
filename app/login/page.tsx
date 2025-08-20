@@ -11,37 +11,62 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Signup function
-  const handleSignup = async () => {
-    setLoading(true)
-    setError('')
-
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) {
-      setError(error.message)
-    } else if (data.user) {
-      // Ensure user exists in users table
-      const ensureUser = async (user: any) => {
-        const { error } = await supabase.from('users').upsert([{ id: user.id, email: user.email }])
-        if (error) console.error('Error ensuring user exists:', error)
-      }
-      await ensureUser(data.user)
-      router.push('/orders')
-    }
-    setLoading(false)
-  }
-
-  // Login function
+  // LOGIN
   const handleLogin = async () => {
     setLoading(true)
     setError('')
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+
     if (error) {
       setError(error.message)
     } else if (data.user) {
-      router.push('/orders')
+      // Fetch role from users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', data.user.id)
+        .single()
+
+      if (userError) {
+        console.error('Failed to fetch role:', userError)
+        setError('Could not fetch user role')
+      } else if (userData?.role === 'admin') {
+        router.push('/admin')
+      } else {
+        router.push('/catalog')
+      }
     }
+
+    setLoading(false)
+  }
+
+  // SIGNUP
+  const handleSignup = async () => {
+    setLoading(true)
+    setError('')
+
+    const { data, error } = await supabase.auth.signUp({ email, password })
+
+    if (error) {
+      setError(error.message)
+    } else if (data.user) {
+      // Create row in users table with default role "user"
+      const { error: userError } = await supabase.from('users').upsert([
+        {
+          id: data.user.id,
+          email: data.user.email,
+          role: 'user',
+        },
+      ])
+
+      if (userError) {
+        console.error('Error inserting user row:', userError)
+      }
+
+      router.push('/catalog')
+    }
+
     setLoading(false)
   }
 
@@ -73,7 +98,7 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full bg-blue-500 text-white py-3 rounded mb-2 hover:bg-blue-600 transition"
         >
-          {loading ? 'Logging in...' : 'Login'}
+          {loading ? 'Logging in…' : 'Login'}
         </button>
 
         <button
@@ -81,7 +106,7 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full bg-green-500 text-white py-3 rounded hover:bg-green-600 transition"
         >
-          {loading ? 'Signing up...' : 'Signup'}
+          {loading ? 'Signing up…' : 'Signup'}
         </button>
       </div>
     </div>

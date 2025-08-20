@@ -1,37 +1,36 @@
 'use client'
 
-import { createContext, useContext, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useState } from 'react'
 
-export interface CartItem {
+type CartItem = {
   id: string
   name: string
   price: number
-  image_url?: string
   qty: number
+  image_url: string
 }
 
-interface CartContextType {
+type CartContextType = {
   items: CartItem[]
   addItem: (item: CartItem) => void
   removeItem: (id: string) => void
   clear: () => void
 }
 
-const CartContext = createContext<CartContextType | undefined>(undefined)
+const CartContext = createContext<CartContextType | null>(null)
 
-export const CartProvider = ({ children }: { children: ReactNode }) => {
+export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([])
 
   const addItem = (item: CartItem) => {
     setItems((prev) => {
-      const exists = prev.find((i) => i.id === item.id)
-      if (exists) {
+      const existing = prev.find((i) => i.id === item.id)
+      if (existing) {
         return prev.map((i) =>
-          i.id === item.id ? { ...i, qty: i.qty + 1 } : i
+          i.id === item.id ? { ...i, qty: i.qty + item.qty } : i
         )
-      } else {
-        return [...prev, { ...item, qty: 1 }]
       }
+      return [...prev, item]
     })
   }
 
@@ -50,6 +49,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
 export const useCart = () => {
   const context = useContext(CartContext)
-  if (!context) throw new Error('useCart must be used within CartProvider')
+  if (!context) {
+    throw new Error('useCart must be used within CartProvider')
+  }
   return context
 }
